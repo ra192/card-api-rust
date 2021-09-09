@@ -32,4 +32,6 @@ pub struct CreateRequest {
     pub postal_code: String,
 }
 
-pub async fn create()
+pub async fn create() {
+
+}
