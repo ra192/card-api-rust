@@ -2,7 +2,7 @@ use warp::reply::{Json, json};
 use serde::{Serialize, Deserialize};
 use crate::token::validate_auth_header;
 use chrono::prelude::*;
-use crate::db::{DBPool, get_db_conn};
+use crate::db::{DBPool, get_db_conn, DBConn};
 use crate::{account, ErrorResponse, Errors};
 use crate::Errors::{TransactionError, AccountError};
 
@@ -70,7 +70,8 @@ pub struct FundResponse {
 
 pub async fn fund_account_handler(pool: DBPool, auth: String, req: FundRequest) -> Result<Json, warp::Rejection> {
     validate_auth_header(auth);
-    match fund(&pool, req.account_id, req.amount, req.order_id).await {
+    let conn=get_db_conn(&pool).await;
+    match fund(&conn, req.account_id, req.amount, req.order_id).await {
         Ok(trans) => {
             Ok(json(&FundResponse {
                 transaction_id: trans.id
@@ -88,22 +89,21 @@ pub async fn fund_account_handler(pool: DBPool, auth: String, req: FundRequest) 
     }
 }
 
-pub async fn fund(pool: &DBPool, account_id: i32, amount: i32, order_id: String) -> Result<Transaction, Errors> {
-    create(pool, account::CASH_ACCOUNT_ID, account_id, amount,
+pub async fn fund(conn: &DBConn, account_id: i32, amount: i32, order_id: String) -> Result<Transaction, Errors> {
+    create(conn, account::CASH_ACCOUNT_ID, account_id, amount,
            TransactionType::Fund, order_id).await
 }
 
-pub async fn create(pool: &DBPool, src_account_id: i32, dest_account_id: i32, amount: i32,
+pub async fn create(conn: &DBConn, src_account_id: i32, dest_account_id: i32, amount: i32,
                     trans_type: TransactionType, order_id: String) -> Result<Transaction, Errors> {
-    let src_account = account::get_active_by_id(pool, src_account_id).await?;
-    let dest_account = account::get_active_by_id(pool, dest_account_id).await?;
+    let src_account = account::get_active_by_id(conn, src_account_id).await?;
+    let dest_account = account::get_active_by_id(conn, dest_account_id).await?;
 
     if src_account.currency != dest_account.currency {
         return Err(
             TransactionError("source account currency doesn't match destination account currency".to_string()));
     }
 
-    let conn = get_db_conn(pool).await;
     let trans_id: i32 = conn.query(
         "insert into transaction (id,type,status,order_id) values(default,$1,$2,$3) returning id",
         &[&trans_type.to_db_val(), &TransactionStatus::Completed.to_db_val(), &order_id]).await

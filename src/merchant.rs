@@ -1,4 +1,4 @@
-use crate::db::{DBPool, get_db_conn};
+use crate::db::DBConn;
 use crate::Errors::MerchantError;
 use crate::Errors;
 
@@ -8,8 +8,7 @@ pub struct Merchant {
     pub secret: String,
 }
 
-pub async fn get_merchant_by_id(pool: &DBPool, id: i32) -> Result<Merchant, Errors> {
-    let conn = get_db_conn(pool).await;
+pub async fn get_merchant_by_id(conn: &DBConn, id: i32) -> Result<Merchant, Errors> {
     match conn.query("select name, secret from merchant where id=$1", &[&id]).await
         .map_err(|e| {
             MerchantError(e.to_string())

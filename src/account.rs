@@ -1,4 +1,4 @@
-use crate::db::{DBPool, get_db_conn};
+use crate::db::DBConn;
 use crate::Errors;
 use crate::Errors::AccountError;
 
@@ -12,8 +12,7 @@ pub struct Account {
     pub merch_id: i32,
 }
 
-pub async fn get_active_by_id(pool: &DBPool, id: i32) -> Result<Account, Errors> {
-    let conn = get_db_conn(pool).await;
+pub async fn get_active_by_id(conn: &DBConn, id: i32) -> Result<Account, Errors> {
     match conn.query("select * from account where id=$1 and active = true", &[&id]).await
         .map_err(|e| {
             AccountError(e.to_string())
