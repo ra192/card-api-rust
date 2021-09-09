@@ -11,6 +11,12 @@ use crate::db::{create_pool, DBPool};
 use std::convert::Infallible;
 use serde::{Serialize};
 
+extern crate pretty_env_logger;
+#[macro_use]
+extern crate log;
+
+use std::env;
+
 fn with_db(db_pool: DBPool) -> impl Filter<Extract=(DBPool, ), Error=Infallible> + Clone {
     warp::any().map(move || db_pool.clone())
 }
@@ -18,7 +24,8 @@ fn with_db(db_pool: DBPool) -> impl Filter<Extract=(DBPool, ), Error=Infallible>
 pub enum Errors {
     MerchantError(String),
     AccountError(String),
-    TransactionError(String)
+    CustomerError(String),
+    TransactionError(String),
 }
 
 #[derive(Serialize)]
@@ -28,6 +35,10 @@ pub struct ErrorResponse {
 
 #[tokio::main]
 async fn main() {
+    env::set_var("RUST_LOG", "info");
+    pretty_env_logger::init();
+    let log = warp::log("myLog");
+
     let pool = create_pool().unwrap();
 
     let token_route = warp::path!("api"/"token").and(warp::post())
@@ -38,7 +49,7 @@ async fn main() {
         .and(with_db(pool.clone())).and(warp::header("Authorization"))
         .and(warp::body::json()).and_then(transaction::fund_account_handler);
 
-    let routes=token_route.or(fund_route);
+    let routes = token_route.or(fund_route);
 
     warp::serve(routes)
         .run(([127, 0, 0, 1], 8080))

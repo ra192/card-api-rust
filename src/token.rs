@@ -24,6 +24,7 @@ pub struct TokenResponse {
 }
 
 pub async fn create_token_handler(db_pool: DBPool, req: TokenRequest) -> Result<Json, warp::Rejection> {
+    info!("Auth method was called");
     let conn = get_db_conn(&db_pool).await;
     match create_token(&conn, req.merchant_id, &req.secret).await {
         Ok(token) => {
