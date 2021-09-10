@@ -54,7 +54,11 @@ async fn main() {
         .and(with_db(pool.clone())).and(warp::header("Authorization"))
         .and(warp::body::json()).and_then(customer::create_handler);
 
-    let routes = token_route.or(fund_route).or(create_customer);
+    let create_card = warp::path!("api"/"card").and(warp::post())
+        .and(with_db(pool.clone())).and(warp::header("Authorization"))
+        .and(warp::body::json()).and_then(card::create_virtual_handler);
+
+    let routes = token_route.or(fund_route).or(create_customer).or(create_card);
 
     warp::serve(routes)
         .run(([127, 0, 0, 1], 8080))
