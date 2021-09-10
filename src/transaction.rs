@@ -30,30 +30,6 @@ impl TransactionStatus {
     }
 }
 
-pub struct Transaction {
-    pub id: i32,
-    pub order_id: String,
-    pub trans_type: TransactionType,
-    pub status: TransactionStatus,
-}
-
-struct TransactionItem {
-    pub id: i32,
-    pub amount: i32,
-    pub created: DateTime<Utc>,
-    pub trans_id: i32,
-    pub src_acc_id: i32,
-    pub dest_acc_id: i32,
-    pub card_id: i32,
-}
-
-struct TransactionFee {
-    pub id: i32,
-    pub rate: f32,
-    pub fee_type: String,
-    pub acc_id: i32,
-}
-
 #[derive(Deserialize)]
 pub struct FundRequest {
     #[serde(rename = "accountId")]
@@ -71,10 +47,10 @@ pub struct FundResponse {
 pub async fn fund_account_handler(pool: DBPool, auth: String, req: FundRequest) -> Result<Json, warp::Rejection> {
     validate_auth_header(auth);
     let conn=get_db_conn(&pool).await;
-    match fund(&conn, req.account_id, req.amount, req.order_id).await {
-        Ok(trans) => {
+    match fund(&conn, req).await {
+        Ok(id) => {
             Ok(json(&FundResponse {
-                transaction_id: trans.id
+                transaction_id: id
             }))
         }
         Err(AccountError(message)) => {
@@ -89,13 +65,13 @@ pub async fn fund_account_handler(pool: DBPool, auth: String, req: FundRequest) 
     }
 }
 
-pub async fn fund(conn: &DBConn, account_id: i32, amount: i32, order_id: String) -> Result<Transaction, Errors> {
-    create(conn, account::CASH_ACCOUNT_ID, account_id, amount,
-           TransactionType::Fund, order_id).await
+pub async fn fund(conn: &DBConn, req: FundRequest) -> Result<i32, Errors> {
+    create(conn, account::CASH_ACCOUNT_ID, req.account_id, req.amount,
+           TransactionType::Fund, req.order_id).await
 }
 
 pub async fn create(conn: &DBConn, src_account_id: i32, dest_account_id: i32, amount: i32,
-                    trans_type: TransactionType, order_id: String) -> Result<Transaction, Errors> {
+                    trans_type: TransactionType, order_id: String) -> Result<i32, Errors> {
     let src_account = account::get_active_by_id(conn, src_account_id).await?;
     let dest_account = account::get_active_by_id(conn, dest_account_id).await?;
 
@@ -112,16 +88,13 @@ pub async fn create(conn: &DBConn, src_account_id: i32, dest_account_id: i32, am
         })?.get(0).unwrap().get("id");
 
     conn.execute(
-        "insert into transaction_item (id, amount, created, trans_id, src_acc_id, dest_acc_id) values (default, $1, $2, $3, $4, $5)",
-        &[&amount, &Utc::now(), &trans_id, &src_account.id, &dest_account.id]).await
+        "insert into transaction_item (id, amount, now(), trans_id, src_acc_id, dest_acc_id) values (default, $1, $2, $3, $4)",
+        &[&amount, &trans_id, &src_account.id, &dest_account.id]).await
         .map_err(|e| {
             TransactionError(e.to_string())
         })?;
 
-    Ok(Transaction {
-        id: trans_id,
-        order_id,
-        trans_type,
-        status: TransactionStatus::Completed,
-    })
+    info!("transaction with type: {} was created",trans_type.to_db_val());
+
+    Ok(trans_id)
 }

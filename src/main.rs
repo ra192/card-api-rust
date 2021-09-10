@@ -25,6 +25,7 @@ pub enum Errors {
     MerchantError(String),
     AccountError(String),
     CustomerError(String),
+    CardError(String),
     TransactionError(String),
 }
 
@@ -49,7 +50,11 @@ async fn main() {
         .and(with_db(pool.clone())).and(warp::header("Authorization"))
         .and(warp::body::json()).and_then(transaction::fund_account_handler);
 
-    let routes = token_route.or(fund_route);
+    let create_customer = warp::path!("api"/"customer").and(warp::post())
+        .and(with_db(pool.clone())).and(warp::header("Authorization"))
+        .and(warp::body::json()).and_then(customer::create_handler);
+
+    let routes = token_route.or(fund_route).or(create_customer);
 
     warp::serve(routes)
         .run(([127, 0, 0, 1], 8080))

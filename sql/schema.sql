@@ -42,10 +42,12 @@ create table card
 (
     id      serial
         constraint card_pkey primary key,
-    type    varchar   not null,
+    type    varchar                  not null,
     created timestamp with time zone not null,
     cust_id integer
-        constraint card_cust_fkey references customer (id)
+        constraint card_cust_fkey references customer (id),
+    acc_id  integer
+        constraint card_acc_fkey references account (id)
 );
 
 create table transaction
@@ -61,7 +63,7 @@ create table transaction_item
 (
     id          serial
         constraint transaction_item_pkey primary key,
-    amount      integer   not null,
+    amount      integer                  not null,
     created     timestamp with time zone not null,
     trans_id    integer
         constraint trans_itm_trans_fkey references transaction (id),
@@ -75,9 +77,10 @@ create table transaction_item
 
 create table transaction_fee
 (
-    id serial
+    id     serial
         constraint transaction_fee_pkey primary key,
-    rate float not null ,
-    type varchar not null ,
-    acc_id integer constraint trans_fee_acc_fkey references account(id)
+    rate   float   not null,
+    type   varchar not null,
+    acc_id integer
+        constraint trans_fee_acc_fkey references account (id)
 );
