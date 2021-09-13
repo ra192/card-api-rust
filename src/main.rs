@@ -38,7 +38,7 @@ pub struct ErrorResponse {
 async fn main() {
     env::set_var("RUST_LOG", "info");
     pretty_env_logger::init();
-    let log = warp::log("myLog");
+    let _log = warp::log("myLog");
 
     let pool = create_pool().unwrap();
 
