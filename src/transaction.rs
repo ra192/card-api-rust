@@ -4,6 +4,7 @@ use crate::token::validate_auth_header;
 use crate::db::{DBPool, get_db_conn, DBConn};
 use crate::{account, ErrorResponse, Errors};
 use crate::Errors::{TransactionError, AccountError};
+use tokio_postgres::Row;
 
 pub enum TransactionType {
     Fund,
@@ -122,7 +123,7 @@ async fn create(conn: &DBConn, src_account_id: i32, dest_account_id: i32, amount
     }
 
     let trans_id: i32 = conn.query(
-        "insert into transaction (id,type,status,order_id) values(default,$1,$2,$3) returning id",
+        "insert into transaction (id,type,status,order_id) values (default,$1,$2,$3) returning id",
         &[&trans_type.to_db_val(), &TransactionStatus::Completed.to_db_val(), &order_id]).await
         .map_err(|e| {
             TransactionError(e.to_string())
@@ -135,7 +136,7 @@ async fn create(conn: &DBConn, src_account_id: i32, dest_account_id: i32, amount
 
 async fn create_item(conn: &DBConn, amount: i32, trans_id: i32, src_account_id: i32, dest_acccount_id: i32) -> Result<u64, Errors> {
     Ok(conn.execute(
-        "insert into transaction_item (id, amount, now(), trans_id, src_acc_id, dest_acc_id) values (default, $1, $2, $3, $4)",
+        "insert into transaction_item (id, amount, created, trans_id, src_acc_id, dest_acc_id) values(default, $1, now(), $2, $3, $4)",
         &[&amount, &trans_id, &src_account_id, &dest_acccount_id]).await
         .map_err(|e| {
             TransactionError(e.to_string())
@@ -150,16 +151,22 @@ async fn get_sum_by_src_acc(conn: &DBConn, account_id: i32) -> Result<i64, Error
     conn.query("select sum(amount) from transaction_item where src_acc_id=$1", &[&account_id]).await
         .map_err(|e| {
             TransactionError(e.to_string())
-        })?.get(0).map(|row| { Ok(row.get(0)) }).unwrap_or(Ok(0))
+        })?.get(0).map(get_sum_from_row).unwrap()
 }
 
 async fn get_sum_by_dest_acc(conn: &DBConn, account_id: i32) -> Result<i64, Errors> {
-    conn.query("select sum(amount) as sum from transaction_item where dest_acc_id=$1", &[&account_id]).await
+    conn.query("select sum(amount) from transaction_item where dest_acc_id=$1", &[&account_id]).await
         .map_err(|e| {
             TransactionError(e.to_string())
-        })?.get(0).map(|row| {
-        Ok(row.get("sum"))
-    }).unwrap_or(Ok(0))
+        })?.get(0).map(get_sum_from_row).unwrap()
+}
+
+fn get_sum_from_row(row: &Row) -> Result<i64, Errors> {
+    let sum_opt: Option<i64>=row.get(0);
+    match sum_opt {
+        None => {Ok(0)}
+        Some(sum) => {Ok(sum)}
+    }
 }
 
 async fn calculate_fee(conn: &DBConn, amount: i32, trans_type: &TransactionType, account_id: i32) -> Result<i32, Errors> {

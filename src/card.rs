@@ -1,7 +1,7 @@
 use crate::db::{DBPool, DBConn, get_db_conn};
 use crate::token::validate_auth_header;
 use serde::{Serialize, Deserialize};
-use crate::Errors::CardError;
+use crate::Errors::{CardError, TransactionError};
 use crate::{Errors, ErrorResponse};
 use warp::reply::{Json, json};
 use warp::Rejection;
@@ -89,6 +89,11 @@ pub async fn deposit_virtual_handler(pool: DBPool, auth: String, req: Transactio
             }))
         }
         Err(CardError(message)) => {
+            Ok(json(&ErrorResponse {
+                error: message
+            }))
+        }
+        Err(TransactionError(message)) => {
             Ok(json(&ErrorResponse {
                 error: message
             }))
