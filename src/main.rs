@@ -38,33 +38,33 @@ pub struct ErrorResponse {
 async fn main() {
     env::set_var("RUST_LOG", "info");
     pretty_env_logger::init();
-    let _log = warp::log("myLog");
+    let log = warp::log("myLog");
 
     let pool = create_pool().unwrap();
 
     let token_route = warp::path!("api"/"token").and(warp::post())
         .and(with_db(pool.clone())).and(warp::body::json())
-        .and_then(token::create_token_handler);
+        .and_then(token::create_token_handler).with(log);
 
     let fund_route = warp::path!("api"/"account"/"fund").and(warp::post())
         .and(with_db(pool.clone())).and(warp::header("Authorization"))
-        .and(warp::body::json()).and_then(transaction::fund_account_handler);
+        .and(warp::body::json()).and_then(transaction::fund_account_handler).with(log);
 
     let create_customer = warp::path!("api"/"customer").and(warp::post())
         .and(with_db(pool.clone())).and(warp::header("Authorization"))
-        .and(warp::body::json()).and_then(customer::create_handler);
+        .and(warp::body::json()).and_then(customer::create_handler).with(log);
 
     let create_card = warp::path!("api"/"card").and(warp::post())
         .and(with_db(pool.clone())).and(warp::header("Authorization"))
-        .and(warp::body::json()).and_then(card::create_virtual_handler);
+        .and(warp::body::json()).and_then(card::create_virtual_handler).with(log);
 
     let deposit_card = warp::path!("api"/"card"/"deposit").and(warp::post())
         .and(with_db(pool.clone())).and(warp::header("Authorization"))
-        .and(warp::body::json()).and_then(card::deposit_virtual_handler);
+        .and(warp::body::json()).and_then(card::deposit_virtual_handler).with(log);
 
     let withdraw_card = warp::path!("api"/"card"/"withdraw").and(warp::post())
         .and(with_db(pool.clone())).and(warp::header("Authorization"))
-        .and(warp::body::json()).and_then(card::withdraw_virtual_handler);
+        .and(warp::body::json()).and_then(card::withdraw_virtual_handler).with(log);
 
     let routes = token_route.or(fund_route).or(create_customer)
         .or(create_card).or(deposit_card).or(withdraw_card);
